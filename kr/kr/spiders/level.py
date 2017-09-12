@@ -13,27 +13,33 @@ class LevelSpider(scrapy.Spider):
             level_url = response.css(".article-table.article-table-selected")[t].css("div+a::attr(href)").extract()
             level_type = response.css("h3 span.mw-headline::text")[t].extract()
             self.log("Find %d %s." % (len(level_url), level_type))
+            level_index = 1
             for next_page_url in level_url:
                 request = response.follow(next_page_url, callback=self.parse_tower)
                 request.meta["level_type"] = level_type
+                request.meta["level_index"] = level_index
                 yield request
+                level_index += 1
 
     def parse_tower(self, response):
         level_type = response.meta["level_type"]
+        level_index = response.meta["level_index"]
         title = response.css(".page-header__title::text").extract_first()
 
         # extract scenery tower
         index = 0
         seen = False
-        for ele in response.css(".WikiaArticle ul li").extract():
+        for ele in response.css(".WikiaArticle ul li"):
+            text = "".join(ele.css("::text").extract())
             index += 1
-            if "Strategic Point" in ele:
+            if "Strategic Point" in text:
                 if seen:
+                    index -= 1
                     break
                 else:
                     seen = True
                     continue
-            if "Gold" in ele or "gold" in ele:
+            if "Gold" in text or "gold" in text:
                 index -= 1
                 break
         info = response.css(".WikiaArticle ul li")[:index]
@@ -75,6 +81,7 @@ class LevelSpider(scrapy.Spider):
 
         yield {
             "title": title,
+            "level_index": level_index,
             "level_type": level_type,
             "scenery": scenery,
             "initial_gold": initial_gold,
