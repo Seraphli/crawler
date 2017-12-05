@@ -27,8 +27,18 @@ class TowerSpider(scrapy.Spider):
         tower_type = response.meta["tower_type"]
         title = response.css(".page-header__title::text").extract_first()
         attr_key = response.css("div h3 b::text").extract()
-        del attr_key[attr_key.index("Introduced")]
-        del attr_key[attr_key.index("Upgrades")]
+        b_introduce = False
+        if "Introduced" in attr_key:
+            b_introduce = True
+            del attr_key[attr_key.index("Introduced")]
+        b_feature = False
+        if "Featured" in attr_key:
+            b_feature = True
+            del attr_key[attr_key.index("Featured")]
+        b_upgrade = False
+        if "Upgrades" in attr_key:
+            b_upgrade = True
+            del attr_key[attr_key.index("Upgrades")]
         attr_value = response.css("div.pi-data-value.pi-font::text").extract()
         attribute = dict(zip(attr_key, attr_value))
         sup = response.css("div div sup::text").extract()
@@ -37,10 +47,27 @@ class TowerSpider(scrapy.Spider):
         for i in range(len(sup)):
             if sup[i] == "KRF":
                 KRF_info.append(sup_text[i])
-        if len(sup) < len(sup_text):
-            attribute.update({"Introduced": KRF_info[0], "Upgrades": sup_text[-1]})
-        else:
-            attribute.update({"Introduced": KRF_info[0], "Upgrades": KRF_info[1:]})
+        if not KRF_info:
+            self.logger.warning('No element')
+            self.logger.warning(sup)
+            self.logger.warning(sup_text)
+        if b_introduce:
+            if len(sup) < len(sup_text):
+                if KRF_info:
+                    attribute.update({"Introduced": KRF_info[0]})
+                else:
+                    attribute.update({"Introduced": sup_text})
+                if b_upgrade:
+                    attribute.update({"Upgrades": sup_text[-1]})
+            else:
+                if KRF_info:
+                    attribute.update({"Introduced": KRF_info[0]})
+                else:
+                    attribute.update({"Introduced": sup_text})
+                if b_upgrade:
+                    attribute.update({"Upgrades": KRF_info[1:]})
+        if b_feature:
+            attribute.update({"Featured": sup_text})
         yield {
             "title": title,
             "tower_id": tower_id,
